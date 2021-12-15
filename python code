@@ -1,0 +1,114 @@
+from flask import Flask, render_template, request 
+app= Flask(__name__,template_folder='template')
+import speech_recognition as sr
+import serial
+from time import sleep
+import RPi.GPIO as GPIO
+r=sr.Recognizer()
+
+bulb1=7
+bulb2=5
+bulb1sts=0
+bulb2sts=0
+@app.route("/")
+
+def rpi():
+	bulb1sts=GPIO.input(bulb1)
+	bulb2sts=GPIO.input(bulb2)
+	templateData = {
+	'bulb1' : bulb1sts-1,
+	'bulb2' : bulb2sts-1
+	}
+	return render_template("rpi.html", **templateData)
+
+@app.route("/<deviceName>/<action>")
+def action(deviceName, action):
+	if deviceName == 'bulb1':	
+		if(action=="on"):
+			GPIO.output(bulb1,0);
+		elif(action=="off"):
+			GPIO.output(bulb1,1);
+	if deviceName == 'bulb2':       
+		if(action=="on"):
+			GPIO.output(bulb2,0);
+		elif(action=="off"):
+			GPIO.output(bulb2,1);
+	bulb1sts=GPIO.input(bulb1) 
+	bulb2sts=GPIO.input(bulb2)
+	templateData = {	
+	'bulb1' : bulb1sts,
+	'bulb2' : bulb2sts
+	}
+	return render_template("rpi.html", **templateData)
+
+def listen():
+	with sr.Microphone(device_index = 2) as source:
+		r.adjust_for_ambient_noise(source)
+		print("Say Something ::")
+		audio=r.listen(source)
+		print("WE HEARD YOU:")
+		ch1=voice(audio)
+	return ch1;
+def voice(audio1):
+	try:
+		text1=r.recognize_google(audio1)
+		print("You Said:"+text1);
+		return text1
+	except sr.RequestError as e:
+		print("CANNOT UNDERSTAND")
+		led()
+		return 0
+	except sr.UnknownValueError:
+		print("Google cannot understand you")
+GPIO.setmode(GPIO.BOARD)
+GPIO.setwarnings(False)
+GPIO.setup(7,GPIO.OUT)
+GPIO.setup(5,GPIO.OUT)
+GPIO.output(7,1)
+GPIO.output(5,1)
+def funcon(bulb):
+	GPIO.output(bulb,0);
+	sleep(1)
+	return
+def funcoff(bulb):
+	GPIO.output(bulb,1)
+	sleep(1)
+	return	
+def led():
+		
+		ch1=listen()
+		if(ch1=="LED 1 on"):
+			funcon(bulb1)
+			print("LIGHT 1 IS ON")
+			return 0;
+		if(ch1=="led to on"):
+                        funcon(bulb2)
+                        print("LIGHT 2 IS ON");			return 0;
+		elif(ch1=="led one of" or ch1=="led 1 of" or ch1=="led one off"):	
+			funcoff(bulb1)
+			print("LIGHT 1 IS OFF")
+			return 0;
+		elif(ch1=="led to off" or ch1=="led to of" or ch1=="led two of"):  
+                        funcoff(bulb2)
+                        print("LIGHT 2 IS OFF");		return 0;
+		elif(ch1=="SYSTEM OFF" or ch1=="system of"):
+			GPIO.output(7,0)
+			GPIO.output(5,0)
+			return 0
+		else:
+			led()
+while True:
+	print("How do you want to proceed");
+	print("1: Voice Controlled mode");
+	print("2:Through Webpage");
+
+	n=input()
+	n=int(n)
+	if(n==1):
+		led()
+	elif(n==2):
+		#if(__name__=="__main__"):
+		app.run(host='0.0.0.0',port=80,debug=True)
+	else:
+		print("Wrong choice terminated")
+
